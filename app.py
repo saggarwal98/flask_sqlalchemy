@@ -117,6 +117,36 @@ def decode_jwt():
         return "expired token"
     # return "In progress"
 
+@app.route("/sample_json_response")
+def sample_json_response():
+    resp=[
+        {
+            "name":"shubham",
+            "age":25,
+            "languages":[
+                "english",
+                "hindi"
+            ]
+        }
+    ]
+    return jsonify(result=resp)
+
+@app.route("/get_json_data",methods=["POST"])
+def get_json_data():
+    raw_data=request.get_json()
+    print(type(raw_data))
+    print(raw_data)
+    return "processed"
+
+@app.route("/get_request_args",methods=["GET"])
+def get_request_args():
+    vals=request.args
+    form_type=request.form
+    for x in vals.keys():
+        print(x,vals[x])
+    print(form_type["x"])
+    return vals
+
 class Users(db.Model):
     __tablename__="users"
     id=Column(Integer,primary_key=True)
