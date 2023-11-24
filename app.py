@@ -1,6 +1,6 @@
 from flask import Flask, request,jsonify
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import Column, Integer, String, Numeric, ForeignKey
+from sqlalchemy import Column, Integer, String, Numeric, ForeignKey,DateTime,DECIMAL, FLOAT
 from sqlalchemy.sql import text
 # from flask_jwt_extended import JWTManager,jwt_required,create_access_token,decode_token
 import jwt
@@ -9,20 +9,20 @@ import datetime
 app=Flask(__name__)
 
 basedir=os.path.abspath(os.path.dirname(__file__))
-app.config["SQLALCHEMY_DATABASE_URI"]='sqlite:///'+os.path.join(basedir,"user.db")
+app.config["SQLALCHEMY_DATABASE_URI"]='sqlite:///'+os.path.join(basedir,"test.db")
 # app.config["JWT_SECRET_KEY"]="secretKey"
 key="secretKey"
 db=SQLAlchemy(app)
 # jwt=JWTManager(app)
-@app.cli.command('db_create')
+@app.cli.command('db create')
 def db_create():
     db.create_all()
     print("DB Created")
 
-@app.cli.command("db_delete")
+@app.cli.command("db delete")
 def db_delete():
     db.drop_all()
-    os.remove(os.path.join(basedir,"user.db"))
+    os.remove(os.path.join(basedir,"test.db"))
     print("DB Deleted")
 
 @app.cli.command("db_seed")
@@ -35,6 +35,14 @@ def db_seed():
     db.session.add(user11)
     db.session.add(student10)
     db.session.add(student11)
+    db.session.commit()
+    test1=Test(Number=12345678900.234, Number1=1234567890.234)
+    test2=Test(Number=12345678900.23, Number1=1234567890.23)
+    test3=Test(Number=12345678900.234, Number1=1234567890.234)
+    db.session.add(test1)
+    db.session.add(test2)
+    db.session.commit()
+    db.session.add(test3)
     db.session.commit()
     print("DB seeded")
 
@@ -98,7 +106,8 @@ def login():
         found=True
     if found:
         payload_data={"email":email}
-        return jsonify(message="login successful",access_token=jwt.encode({"exp":datetime.datetime.now(tz=datetime.timezone.utc),"email":email},key=key,algorithm="HS256")),200
+        return jsonify(message="login successful",access_token=jwt.encode({"exp":datetime.datetime.now(tz=datetime.timezone.utc)+datetime.timedelta(minutes=30),"email":email},key=key,algorithm="HS256")),200
+        # return jsonify(message="login successful",access_token=jwt.encode({"email":email},key=key,algorithm="HS256")),200
     else:
         return jsonify(message="Bad email or password"),401
     
@@ -147,6 +156,31 @@ def get_request_args():
     print(form_type["x"])
     return vals
 
+@app.route("/get_request_headers",methods=["POST"])
+def get_request_headers():
+    headers=request.headers
+    print(headers)
+    print(headers.get('Authorization'))
+    token=headers.get('Authorization').split()[1]
+    try:
+        email=jwt.decode(token,key=key,algorithms=["HS256"])
+        print(email)
+        print(jwt.get_unverified_header(token))
+        return jsonify(email,jwt.get_unverified_header(token)["alg"])
+    except jwt.ExpiredSignatureError as e:
+        print(e)
+        print(jwt.get_unverified_header(token)["alg"])
+        return "expired token"
+    
+@app.route("/updateTest")
+def updateTest():
+    try:
+        db.session.execute(text("UPDATE TEST SET update_time='"+str(datetime.datetime.now())+"'"))
+        db.session.commit()
+        return "Update Successful",200
+    except:
+        return "Failed"
+
 class Users(db.Model):
     __tablename__="users"
     id=Column(Integer,primary_key=True)
@@ -161,6 +195,17 @@ class Students(db.Model):
     age=Column(Integer,nullable=False)
     email=Column(String,nullable=False)
     password=Column(String,nullable=False)
+
+class Test(db.Model):
+    __tablename__="test"
+    id=Column(Integer,primary_key=True)
+    # name=Column(String,nullable=False)
+    create_time=Column(DateTime(timezone=False),default=datetime.datetime.now())
+    update_time=Column(DateTime(timezone=False),default=datetime.datetime.now())
+    # time=Column()
+    # date=Column(Integer,nullable=False)
+    Number=Column(DECIMAL(10,2),unique=True)
+    Number1=Column(FLOAT(precision=2))
 
 if __name__=="__main__":
     app.run(debug=True,port=2500)
